@@ -1,2 +1,2 @@
 # opynator
-Utilize opyn operator functionality for managing user options
+Utilize opyn operator functionality to manage user option positions
