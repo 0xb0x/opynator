@@ -17,7 +17,7 @@ contract Opynator {
     PriceOracle public oracle;
 
     
-    mapping(address => position[]) positions;
+    mapping(address => Position[]) positions;
 
     struct Position {
         uint itm;
@@ -26,7 +26,7 @@ contract Opynator {
         bool exercised;
     }
   
-
+    // @param 
     function delegate(address asset) external {
         require(!controller.isOperator(msg.sender, address(this)));
         controller.setOperator(address(this), true);
@@ -40,12 +40,13 @@ contract Opynator {
         bool success = IERC20(asset).transferFrom(msg.sender, address(this), amount);
         require(success);
         
-        positions[asset].push({
+        positions[asset].push(
+            Position({
             itm: _itm,
             user: msg.sender,
             userBalance: amount,
             exercised: false,
-        });
+        }));
 
     }
 
@@ -80,14 +81,14 @@ contract Opynator {
         // integrate flashbot to prevent frontrunning and sandwich attacks
         // slippage currently set to 5%
         uint minPotentialPayout = potentialPayOut.div(underlyingAssetPrice).mul(0.95);
-        _swapUSDCToETH(potentialPayOut, minPotentialPayout);
+        uint x = _swapUSDCToETH(potentialPayOut, minPotentialPayout);
 
         for(uint i = 0; i < positions[asset].length; i++ ){
             if(positions[asset][i].exercised){
                 // 😥 shity math        50IQ brain
                 //             :handshake:         
-                uint percentage = ((positions[asset][i].userBalance).div(balance)).mul(100);
-                uint share = (x.mul(percentage)).div(100);
+                uint percentage = ((positions[asset][i].userBalance).div(balance));
+                uint share = (x.mul(percentage));
                 (bool success, ) = positions[asset][i].user.call{value: share}();
             }
         };
@@ -107,7 +108,8 @@ contract Opynator {
         IERC20(USDC).approve(address(router), amount);
         uint deadline = block.timestamp + (15 * 60);
         // uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline
-        router.swapExactTokensForETH(amount, amountOutMin, path, address(this), deadline);
+        uint[] memory res = router.swapExactTokensForETH(amount, amountOutMin, path, address(this), deadline);
+        return res[res.length.sub(1)];
     }
 
     function parseRedeemArgs(address oToken, address receiver, uint256 _amount) internal {
@@ -127,9 +129,15 @@ contract Opynator {
 
 
     function exit(address asset, uint amount) external {
-        uint userBal = positions[asset][msg.sender].userBalance;
-        require( userBal > 0, 'ZERO_BALANCE');
-        positions[asset][msg.sender].userBalance = userBal.sub(amount);
+        for(uint i = 0; i < positions[asset].length; i++ ){
+            if(msg.sender == positions[asset][i].user){
+                uint userBal = positions[asset][i].userBalance;
+                require( userBal > 0, 'ZERO_BALANCE');
+                positions[asset][i].userBalance = userBal.sub(amount);
+            }else{
+                revert("NO_POSITION_FOUND");
+            }
+        }
         bool success = IERC20(asset).transferFrom(address(this), msg.sender, amount);        
         require success;
     }
