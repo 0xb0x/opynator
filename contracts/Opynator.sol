@@ -7,7 +7,7 @@ import "../interfaces/IERC20.sol";
 import {SafeMath} from "../libs/SafeMath.sol";
 import {PriceOracle} from "../oracle/Oracle.sol"
 
-contract opynator {
+contract Opynator {
     using SafeMath for uint256;
 
     Controller public controller = Controller(0x4ccc2339F87F6c59c6893E1A678c2266cA58dC72);
@@ -34,8 +34,8 @@ contract opynator {
 
     function delegatePosition(address asset, uint256 amount, uint _itm) external {
         OtokenInterface otoken = OtokenInterface(asset);
-        (,,,,, bool isPut) = otoken.getOtokenDetails();
-        require(isPut);
+        (,,,,, bool _isPut) = otoken.getOtokenDetails();
+        // require(isPut);
         IERC20(asset).approve(address(this), amount);
         bool success = IERC20(asset).transferFrom(msg.sender, address(this), amount);
         require(success);
@@ -44,15 +44,16 @@ contract opynator {
             itm: _itm,
             user: msg.sender,
             userBalance: amount,
-            exercised: false
+            exercised: false,
         });
 
     }
 
-    function redeemPutBuyEthPerExp(address asset, uint deadline) external {
+    function redeemPutBuyEthPerExp(address asset) external {
         
         require(controller.hasExpired(asset));
-        (,address underlyingAsset,,uint256 strikePrice,,) = otoken.getOtokenDetails();
+        (,address underlyingAsset,,uint256 strikePrice,,bool _isPut) = otoken.getOtokenDetails();
+        require(_isPut, 'NOT_PUT_OPTION')
         uint underlyingAssetPrice = oracle.getLatestPrice();
         bool itm = strikePrice > underlyingAssetPrice;
         require(itm, 'OPTION_NOT_IN_THE_MONEY');
@@ -75,8 +76,11 @@ contract opynator {
 
         // @todo implement swap and get min amount of eth swapped to(x)
         // used fixed point math to calculate payout
-        uint amountOutMin;
-        _swap(potentialPayOut, amountOutMin ,deadline);
+        // currently using uniswap to swap tokens can use balancer or swap aggregator or even 
+        // integrate flashbot to prevent frontrunning and sandwich attacks
+        // slippage currently set to 5%
+        uint minPotentialPayout = potentialPayOut.div(underlyingAssetPrice).mul(0.95);
+        _swapUSDCToETH(potentialPayOut, minPotentialPayout);
 
         for(uint i = 0; i < positions[asset].length; i++ ){
             if(positions[asset][i].exercised){
@@ -95,14 +99,15 @@ contract opynator {
         return res.mul(100)
     }
 
-    function _swap(uint amount, uint amountOut uint deadline) internal payable returns(uint) {
+    function _swapUSDCToETH(uint amount, uint amountOutMin) internal payable returns(uint) {
         address[] memory path = new address[](2);
         path[0] = USDC;
         path[1] = router.WETH();
         
         IERC20(USDC).approve(address(router), amount);
+        uint deadline = block.timestamp + (15 * 60);
         // uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline
-        router.swapExactTokensForETH(amount, amountOut, path, address(this), deadline);
+        router.swapExactTokensForETH(amount, amountOutMin, path, address(this), deadline);
     }
 
     function parseRedeemArgs(address oToken, address receiver, uint256 _amount) internal {
@@ -128,4 +133,6 @@ contract opynator {
         bool success = IERC20(asset).transferFrom(address(this), msg.sender, amount);        
         require success;
     }
+
+    function rollover(){}
 }
