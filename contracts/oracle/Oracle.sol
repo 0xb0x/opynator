@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.6.1;
+pragma solidity 0.6.10;
 
 import "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
 
 contract PriceOracle {
     AggregatorV3Interface private priceFeed;
     
-    constructor() {
+    constructor() public {
         priceFeed = AggregatorV3Interface(
             0x9326BFA02ADD2366b30bacB125260Af641031331
         );
