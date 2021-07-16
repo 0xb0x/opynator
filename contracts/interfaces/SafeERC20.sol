@@ -4,9 +4,9 @@
 /* solhint-disable */
 pragma solidity ^0.6.0;
 
-import "../../interfaces/ERC20Interface.sol";
-import "./SafeMath.sol";
-import "./Address.sol";
+import {ERC20Interface} from "./IERC20.sol";
+import "../libs/SafeMath.sol";
+import "../libs/Address.sol";
 
 /**
  * @title SafeERC20
