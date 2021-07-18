@@ -45,7 +45,8 @@ contract Opynator {
     }
 
     /**
-     *  @notice delegate options position to this smart contract
+     *  @notice delegate options position to this contract
+     *  @dev transfer otoken to this contract
      *  @param asset - address off the asset (oTokens) representing the users position to deposit
      *  @param amount - amount of oTokens to deposit
      *  @param _itm - percent in the moneyness of the options at which it should be exercised
@@ -115,6 +116,12 @@ contract Opynator {
 
     }
 
+    /**
+     *  @notice caculates in the moneyness of option and exercise
+     *  @param asset - otoken to exercise
+     *  @param uap - eth price
+     *  @param strike_price - strike price of option
+     */
     function _exercise(address asset, uint uap, uint strike_price) internal returns(uint){
         uint itmness = calculateITM(uap, strike_price);
         uint balance = 0;
@@ -130,6 +137,13 @@ contract Opynator {
 
         return balance;
     }
+
+    /**
+     * @dev claculate each position share and dist. accordingly  
+     * @param asset - otoken address
+     * @param x - total amount of eth to distribute
+     * @param balance - amount of otokens redeemed
+     */
     function _calculateShareDistEth(address asset, uint x, uint balance ) internal {
         for(uint i = 0; i < positions[asset].length; i++ ){
             if(positions[asset][i].exercised){
@@ -144,6 +158,9 @@ contract Opynator {
     }
 
     /**
+     *  @notice calculate in-the-moneyness of option
+     *  (strikePrice - underlyingAssetPrice) / underlyingAssetPrice * 100
+     *  
      *  @param underlyingAssetPrice - price of underlying asset(eth)
      *  @param strikePrice - strike price of put option
      */
